@@ -895,6 +895,48 @@ if CUSTOM_NAME:
         log.exception(e)
         pass
 
+# Download custom favicon if WEBUI_FAVICON_URL is set and not the default
+if WEBUI_FAVICON_URL and WEBUI_FAVICON_URL != "https://openwebui.com/favicon.png":
+    try:
+        r = requests.get(WEBUI_FAVICON_URL, stream=True)
+        if r.status_code == 200:
+            # Save the downloaded favicon
+            favicon_path = f"{STATIC_DIR}/favicon.png"
+            favicon_content = b""
+            with open(favicon_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        favicon_content += chunk
+
+            # Copy to all favicon variants
+            favicon_files = [
+                "favicon-96x96.png",
+                "favicon-dark.png",
+                "favicon.ico",
+                "apple-touch-icon.png",
+            ]
+            for favicon_file in favicon_files:
+                try:
+                    shutil.copyfile(favicon_path, f"{STATIC_DIR}/{favicon_file}")
+                except Exception as e:
+                    log.warning(f"Failed to copy favicon to {favicon_file}: {e}")
+
+            # Create SVG wrapper for the PNG favicon
+            import base64
+            favicon_base64 = base64.b64encode(favicon_content).decode('utf-8')
+            svg_content = f'''<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.dev/svgjs" width="500" height="500" viewBox="0 0 500 500"><image width="500" height="500" xlink:href="data:image/png;base64,{favicon_base64}"></image><style>@media (prefers-color-scheme: light) {{ :root {{ filter: none; }} }}
+@media (prefers-color-scheme: dark) {{ :root {{ filter: none; }} }}
+</style></svg>'''
+
+            with open(f"{STATIC_DIR}/favicon.svg", "w") as f:
+                f.write(svg_content)
+
+            log.info(f"Custom favicon downloaded from {WEBUI_FAVICON_URL}")
+    except Exception as e:
+        log.exception(f"Failed to download custom favicon from {WEBUI_FAVICON_URL}: {e}")
+        pass
+
 
 ####################################
 # STORAGE PROVIDER
