@@ -34,6 +34,7 @@ from open_webui.env import (
     STATIC_DIR,
     SRC_LOG_LEVELS,
     WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
+    ENABLE_PUBLIC_SHARED_CHATS,
 )
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Request, Response, status
@@ -365,3 +366,96 @@ def get_admin_user(user=Depends(get_current_user)):
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
     return user
+
+
+def get_optional_user_for_public_shared_chats(
+    request: Request,
+    response: Response,
+    background_tasks: BackgroundTasks,
+    auth_token: HTTPAuthorizationCredentials = Depends(bearer_security),
+):
+    """
+    Optional authentication for public shared chats.
+    Returns None if ENABLE_PUBLIC_SHARED_CHATS is True and no authentication is provided.
+    Otherwise, requires authentication like get_current_user.
+    """
+    token = None
+
+    if auth_token is not None:
+        token = auth_token.credentials
+
+    if token is None and "token" in request.cookies:
+        token = request.cookies.get("token")
+
+    # If no token and public shared chats are enabled, allow anonymous access
+    if token is None:
+        if ENABLE_PUBLIC_SHARED_CHATS:
+            return None
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # auth by api key
+    if token.startswith("sk-"):
+        if not request.state.enable_api_key:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED
+            )
+
+        if request.app.state.config.ENABLE_API_KEY_ENDPOINT_RESTRICTIONS:
+            allowed_paths = [
+                path.strip()
+                for path in str(
+                    request.app.state.config.API_KEY_ALLOWED_ENDPOINTS
+                ).split(",")
+            ]
+
+            if not any(
+                request.url.path == allowed
+                or request.url.path.startswith(allowed + "/")
+                for allowed in allowed_paths
+            ):
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED
+                )
+
+        user = get_current_user_by_api_key(token)
+        return user
+
+    # auth by jwt token
+    try:
+        try:
+            data = decode_token(token)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            )
+
+        if data is not None and "id" in data:
+            user = Users.get_user_by_id(data["id"])
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=ERROR_MESSAGES.INVALID_TOKEN,
+                )
+            else:
+                if background_tasks:
+                    background_tasks.add_task(
+                        Users.update_user_last_active_by_id, user.id
+                    )
+            return user
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=ERROR_MESSAGES.UNAUTHORIZED,
+            )
+    except Exception as e:
+        if request.cookies.get("token"):
+            response.delete_cookie("token")
+
+        if request.cookies.get("oauth_id_token"):
+            response.delete_cookie("oauth_id_token")
+
+        if request.cookies.get("oauth_session_id"):
+            response.delete_cookie("oauth_session_id")
+
+        raise e

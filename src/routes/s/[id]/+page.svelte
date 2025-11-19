@@ -60,14 +60,36 @@
 	//////////////////////////
 
 	const loadSharedChat = async () => {
-		const userSettings = await getUserSettings(localStorage.token).catch((error) => {
-			console.error(error);
-			return null;
-		});
+		const token = localStorage.token ?? null;
 
-		if (userSettings) {
-			settings.set(userSettings.ui);
+		if (token) {
+			const userSettings = await getUserSettings(token).catch((error) => {
+				console.error(error);
+				return null;
+			});
+
+			if (userSettings) {
+				settings.set(userSettings.ui);
+			} else {
+				let localStorageSettings = {} as Parameters<(typeof settings)['set']>[0];
+
+				try {
+					localStorageSettings = JSON.parse(localStorage.getItem('settings') ?? '{}');
+				} catch (e: unknown) {
+					console.error('Failed to parse settings from localStorage', e);
+				}
+
+				settings.set(localStorageSettings);
+			}
+
+			await models.set(
+				await getModels(
+					token,
+					$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+				)
+			);
 		} else {
+			// Anonymous user - use default/cached settings
 			let localStorageSettings = {} as Parameters<(typeof settings)['set']>[0];
 
 			try {
@@ -77,25 +99,29 @@
 			}
 
 			settings.set(localStorageSettings);
+			await models.set([]);
 		}
 
-		await models.set(
-			await getModels(
-				localStorage.token,
-				$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
-			)
-		);
 		await chatId.set($page.params.id);
-		chat = await getChatByShareId(localStorage.token, $chatId).catch(async (error) => {
+		chat = await getChatByShareId(token, $chatId).catch(async (error) => {
 			await goto('/');
 			return null;
 		});
 
 		if (chat) {
-			user = await getUserById(localStorage.token, chat.user_id).catch((error) => {
-				console.error(error);
-				return null;
-			});
+			if (token) {
+				user = await getUserById(token, chat.user_id).catch((error) => {
+					console.error(error);
+					return null;
+				});
+			} else {
+				// Anonymous user - use placeholder user info
+				user = {
+					id: chat.user_id,
+					name: 'Anonymous',
+					email: ''
+				};
+			}
 
 			const chatContent = chat.chat;
 
@@ -198,12 +224,14 @@
 				class="absolute bottom-0 right-0 left-0 flex justify-center w-full bg-linear-to-b from-transparent to-white dark:to-gray-900"
 			>
 				<div class="pb-5">
-					<button
-						class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full"
-						on:click={cloneSharedChat}
-					>
-						{$i18n.t('Clone Chat')}
-					</button>
+					{#if localStorage.token}
+						<button
+							class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full"
+							on:click={cloneSharedChat}
+						>
+							{$i18n.t('Clone Chat')}
+						</button>
+					{/if}
 				</div>
 			</div>
 		</div>

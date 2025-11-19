@@ -16,12 +16,12 @@ from open_webui.models.folders import Folders
 
 from open_webui.config import ENABLE_ADMIN_CHAT_ACCESS, ENABLE_ADMIN_EXPORT
 from open_webui.constants import ERROR_MESSAGES
-from open_webui.env import SRC_LOG_LEVELS
+from open_webui.env import SRC_LOG_LEVELS, ENABLE_PUBLIC_SHARED_CHATS
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 
-from open_webui.utils.auth import get_admin_user, get_verified_user
+from open_webui.utils.auth import get_admin_user, get_verified_user, get_optional_user_for_public_shared_chats
 from open_webui.utils.access_control import has_permission
 
 log = logging.getLogger(__name__)
@@ -382,16 +382,25 @@ async def unarchive_all_chats(user=Depends(get_verified_user)):
 
 
 @router.get("/share/{share_id}", response_model=Optional[ChatResponse])
-async def get_shared_chat_by_id(share_id: str, user=Depends(get_verified_user)):
-    if user.role == "pending":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.NOT_FOUND
-        )
-
-    if user.role == "user" or (user.role == "admin" and not ENABLE_ADMIN_CHAT_ACCESS):
+async def get_shared_chat_by_id(share_id: str, user=Depends(get_optional_user_for_public_shared_chats)):
+    # Anonymous access is allowed when ENABLE_PUBLIC_SHARED_CHATS is True
+    if user is None:
+        if not ENABLE_PUBLIC_SHARED_CHATS:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.NOT_FOUND
+            )
         chat = Chats.get_chat_by_share_id(share_id)
-    elif user.role == "admin" and ENABLE_ADMIN_CHAT_ACCESS:
-        chat = Chats.get_chat_by_id(share_id)
+    else:
+        # Authenticated user
+        if user.role == "pending":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail=ERROR_MESSAGES.NOT_FOUND
+            )
+
+        if user.role == "user" or (user.role == "admin" and not ENABLE_ADMIN_CHAT_ACCESS):
+            chat = Chats.get_chat_by_share_id(share_id)
+        elif user.role == "admin" and ENABLE_ADMIN_CHAT_ACCESS:
+            chat = Chats.get_chat_by_id(share_id)
 
     if chat:
         return ChatResponse(**chat.model_dump())
