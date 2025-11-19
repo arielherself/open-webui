@@ -909,12 +909,14 @@ if WEBUI_FAVICON_URL and WEBUI_FAVICON_URL != "https://openwebui.com/favicon.png
                         f.write(chunk)
                         favicon_content += chunk
 
-            # Copy to all favicon variants
+            # Copy to all favicon variants and splash images
             favicon_files = [
                 "favicon-96x96.png",
                 "favicon-dark.png",
                 "favicon.ico",
                 "apple-touch-icon.png",
+                "splash.png",
+                "splash-dark.png",
             ]
             for favicon_file in favicon_files:
                 try:
@@ -1486,7 +1488,7 @@ DEFAULT_ARENA_MODEL = {
     "id": "arena-model",
     "name": "Arena Model",
     "meta": {
-        "profile_image_url": "/favicon.png",
+        "profile_image_url": "/static/favicon.png",
         "description": "Submit your questions to anonymous AI chatbots and vote on the best response.",
         "model_ids": None,
     },

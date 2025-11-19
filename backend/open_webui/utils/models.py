@@ -35,6 +35,38 @@ log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MAIN"])
 
 
+def get_model_icon_url(model_name: str) -> str:
+    """
+    Automatically determine the default icon for a model based on its name.
+    Returns the icon URL if a match is found, otherwise returns the default icon.
+    """
+    if not model_name:
+        return "/static/favicon.png"
+
+    # Convert to lowercase for case-insensitive matching
+    name_lower = model_name.lower()
+
+    # Define icon mappings - order matters for precedence
+    icon_mappings = {
+        "gemini": "/static/assets/providers/gemini.ico",
+        "gpt": "/static/assets/providers/chatgpt.ico",
+        "claude": "/static/assets/providers/claude.ico",
+        "grok": "/static/assets/providers/grok.ico",
+        "qwen": "/static/assets/providers/qwen.png",
+        "deepseek": "/static/assets/providers/deepseek.ico",
+        "mistral": "/static/assets/providers/mistral.ico",
+        "doubao": "/static/assets/providers/doubao.png",
+        "llama": "/static/assets/providers/llama.ico",
+    }
+
+    # Check for substring matches
+    for keyword, icon_url in icon_mappings.items():
+        if keyword in name_lower:
+            return icon_url
+
+    return "/static/favicon.png"
+
+
 async def fetch_ollama_models(request: Request, user: UserModel = None):
     raw_ollama_models = await ollama.get_all_models(request, user=user)
     return [
@@ -319,6 +351,20 @@ async def get_all_models(request, refresh: bool = False, user: UserModel = None)
                 model["filters"].extend(
                     get_filter_items_from_module(filter_function, function_module)
                 )
+
+    # Auto-detect and apply icons to models that don't have custom icons
+    for model in models:
+        # Initialize info structure if it doesn't exist
+        if "info" not in model:
+            model["info"] = {}
+        if "meta" not in model["info"]:
+            model["info"]["meta"] = {}
+
+        # Auto-detect icon if not set or if it's the default icon
+        current_icon = model["info"]["meta"].get("profile_image_url", "/static/favicon.png")
+        if current_icon == "/static/favicon.png":
+            auto_icon = get_model_icon_url(model.get("name", ""))
+            model["info"]["meta"]["profile_image_url"] = auto_icon
 
     log.debug(f"get_all_models() returned {len(models)} models")
 

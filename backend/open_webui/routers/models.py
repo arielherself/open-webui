@@ -39,6 +39,38 @@ def validate_model_id(model_id: str) -> bool:
     return model_id and len(model_id) <= 256
 
 
+def get_model_icon_url(model_name: str) -> Optional[str]:
+    """
+    Automatically determine the default icon for a model based on its name.
+    Returns the icon URL if a match is found, otherwise returns None.
+    """
+    if not model_name:
+        return None
+
+    # Convert to lowercase for case-insensitive matching
+    name_lower = model_name.lower()
+
+    # Define icon mappings - order matters for precedence
+    icon_mappings = {
+        "gemini": "/static/assets/providers/gemini.ico",
+        "gpt": "/static/assets/providers/chatgpt.ico",
+        "claude": "/static/assets/providers/claude.ico",
+        "grok": "/static/assets/providers/grok.ico",
+        "qwen": "/static/assets/providers/qwen.png",
+        "deepseek": "/static/assets/providers/deepseek.ico",
+        "mistral": "/static/assets/providers/mistral.ico",
+        "doubao": "/static/assets/providers/doubao.png",
+        "llama": "/static/assets/providers/llama.ico",
+    }
+
+    # Check for substring matches
+    for keyword, icon_url in icon_mappings.items():
+        if keyword in name_lower:
+            return icon_url
+
+    return None
+
+
 ###########################
 # GetModels
 ###########################
@@ -97,6 +129,12 @@ async def create_new_model(
         )
 
     else:
+        # Auto-detect icon based on model name if not explicitly set
+        if form_data.meta.profile_image_url == "/static/favicon.png":
+            auto_icon = get_model_icon_url(form_data.name)
+            if auto_icon:
+                form_data.meta.profile_image_url = auto_icon
+
         model = Models.insert_new_model(form_data, user.id)
         if model:
             return model
@@ -147,12 +185,26 @@ async def import_models(
                         updated_model = ModelForm(
                             **{**existing_model.model_dump(), **model_data}
                         )
+
+                        # Auto-detect icon based on model name if not explicitly set
+                        if updated_model.meta.profile_image_url == "/static/favicon.png":
+                            auto_icon = get_model_icon_url(updated_model.name)
+                            if auto_icon:
+                                updated_model.meta.profile_image_url = auto_icon
+
                         Models.update_model_by_id(model_id, updated_model)
                     else:
                         # Insert new model
                         model_data["meta"] = model_data.get("meta", {})
                         model_data["params"] = model_data.get("params", {})
                         new_model = ModelForm(**model_data)
+
+                        # Auto-detect icon based on model name if not explicitly set
+                        if new_model.meta.profile_image_url == "/static/favicon.png":
+                            auto_icon = get_model_icon_url(new_model.name)
+                            if auto_icon:
+                                new_model.meta.profile_image_url = auto_icon
+
                         Models.insert_new_model(user_id=user.id, form_data=new_model)
             return True
         else:
@@ -175,6 +227,13 @@ class SyncModelsForm(BaseModel):
 async def sync_models(
     request: Request, form_data: SyncModelsForm, user=Depends(get_admin_user)
 ):
+    # Auto-detect icons for models that don't have custom icons
+    for model in form_data.models:
+        if model.meta.profile_image_url == "/static/favicon.png":
+            auto_icon = get_model_icon_url(model.name)
+            if auto_icon:
+                model.meta.profile_image_url = auto_icon
+
     return Models.sync_models(user.id, form_data.models)
 
 
@@ -297,6 +356,12 @@ async def update_model_by_id(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
+
+    # Auto-detect icon based on model name if not explicitly set
+    if form_data.meta.profile_image_url == "/static/favicon.png":
+        auto_icon = get_model_icon_url(form_data.name)
+        if auto_icon:
+            form_data.meta.profile_image_url = auto_icon
 
     model = Models.update_model_by_id(id, form_data)
     return model
