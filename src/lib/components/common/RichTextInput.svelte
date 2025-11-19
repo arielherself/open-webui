@@ -415,7 +415,7 @@
 		// selectNextTemplate(state, dispatch);
 	};
 
-	export const setText = (text: string) => {
+	export const setText = (text: string, shouldFocus: boolean = false) => {
 		if (!editor) return;
 		text = text.replaceAll('\n\n', '\n');
 
@@ -448,7 +448,9 @@
 		}
 
 		selectNextTemplate(editor.view.state, editor.view.dispatch);
-		focus();
+		if (shouldFocus) {
+			focus();
+		}
 	};
 
 	export const insertContent = (content) => {
@@ -517,6 +519,22 @@
 			} catch (e) {
 				// sometimes focusing throws an error, ignore
 				console.warn('Error focusing editor', e);
+			}
+		}
+	};
+
+	export const blur = () => {
+		if (editor) {
+			try {
+				// Blur the editor view
+				editor.view?.dom?.blur();
+				// Also blur the element container
+				element?.querySelector('[contenteditable]')?.blur();
+				// Blur the main element if it has focus
+				element?.blur();
+			} catch (e) {
+				// sometimes blurring throws an error, ignore
+				console.warn('Error blurring editor', e);
 			}
 		}
 	};
@@ -770,7 +788,7 @@
 				...(collaboration && provider ? [provider.getEditorExtension()] : [])
 			],
 			content: collaboration ? undefined : content,
-			autofocus: messageInput ? true : false,
+			autofocus: false,
 			onTransaction: () => {
 				// force re-render so `editor.isActive` works as expected
 				editor = editor;

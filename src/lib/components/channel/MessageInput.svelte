@@ -239,8 +239,8 @@
 				text = await textVariableHandler(text || '');
 			}
 
-			chatInputElement?.setText(text);
-			chatInputElement?.focus();
+			// Only focus if there's actual text being set
+			chatInputElement?.setText(text, text !== '');
 
 			if (text !== '') {
 				text = await inputVariableHandler(text);
@@ -556,10 +556,9 @@
 
 		if (chatInputElement) {
 			chatInputElement?.setText('');
+			chatInputElement?.blur();
 
 			await tick();
-
-			chatInputElement.focus();
 		}
 	};
 

@@ -199,9 +199,6 @@
 			} else {
 				await setDefaults();
 			}
-
-			const chatInput = document.getElementById('chat-input');
-			chatInput?.focus();
 		} else {
 			await goto('/');
 		}
@@ -625,7 +622,6 @@
 		});
 
 		const chatInput = document.getElementById('chat-input');
-		chatInput?.focus();
 	});
 
 	onDestroy(() => {
@@ -1062,9 +1058,6 @@
 		} else {
 			settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
 		}
-
-		const chatInput = document.getElementById('chat-input');
-		setTimeout(() => chatInput?.focus(), 0);
 	};
 
 	const loadChat = async () => {
@@ -1656,13 +1649,13 @@
 			history.messages[messages.at(-1).id].childrenIds.push(userMessageId);
 		}
 
-		// focus on chat input
-		const chatInput = document.getElementById('chat-input');
-		chatInput?.focus();
-
 		saveSessionSelectedModels();
 
 		await sendMessage(history, userMessageId, { newChat: true });
+
+		// Blur the input after sending
+		await tick();
+		messageInput?.blur();
 	};
 
 	const sendMessage = async (

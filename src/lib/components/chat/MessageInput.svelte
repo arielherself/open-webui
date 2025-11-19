@@ -299,8 +299,8 @@
 				text = await textVariableHandler(text || '');
 			}
 
-			chatInputElement?.setText(text);
-			chatInputElement?.focus();
+			// Only focus if there's actual text being set
+			chatInputElement?.setText(text, text !== '');
 
 			if (text !== '') {
 				text = await inputVariableHandler(text);
@@ -309,6 +309,10 @@
 			await tick();
 			if (cb) await cb(text);
 		}
+	};
+
+	export const blur = () => {
+		chatInputElement?.blur();
 	};
 
 	const getCommand = () => {
