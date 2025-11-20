@@ -48,10 +48,28 @@ def get_model_icon_url(model_name: str) -> str:
 
     # Define icon mappings - order matters for precedence
     icon_mappings = {
+        "veo": "/static/assets/providers/gemini.ico",  # Match veo before o1/o3 (veo3 contains o3)
         "gemini": "/static/assets/providers/gemini.ico",
+        "gemma": "/static/assets/providers/gemini.ico",
+        "banana": "/static/assets/providers/gemini.ico",
+        "sora": "/static/assets/providers/chatgpt.ico",
+        "whisper": "/static/assets/providers/chatgpt.ico",
+        "o4": "/static/assets/providers/chatgpt.ico",
+        "o3": "/static/assets/providers/chatgpt.ico",
+        "o1": "/static/assets/providers/chatgpt.ico",
+        "dall-e": "/static/assets/providers/chatgpt.ico",
+        "tts": "/static/assets/providers/chatgpt.ico",
+        "text-embedding": "/static/assets/providers/chatgpt.ico",
+        "davinci": "/static/assets/providers/chatgpt.ico",
+        "curie": "/static/assets/providers/chatgpt.ico",
+        "babbage": "/static/assets/providers/chatgpt.ico",
+        "ada": "/static/assets/providers/chatgpt.ico",
+        "codex": "/static/assets/providers/chatgpt.ico",
         "gpt": "/static/assets/providers/chatgpt.ico",
         "claude": "/static/assets/providers/claude.ico",
         "grok": "/static/assets/providers/grok.ico",
+        "qvq": "/static/assets/providers/qwen.png",
+        "qwq": "/static/assets/providers/qwen.png",
         "qwen": "/static/assets/providers/qwen.png",
         "deepseek": "/static/assets/providers/deepseek.ico",
         "mistral": "/static/assets/providers/mistral.ico",
