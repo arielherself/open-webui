@@ -361,32 +361,60 @@ async def get_model_by_id(id: str, user=Depends(get_verified_user)):
 
 
 @router.get("/model/profile/image")
-async def get_model_profile_image(id: str, user=Depends(get_verified_user)):
+async def get_model_profile_image(
+    id: str, request: Request, user=Depends(get_verified_user)
+):
     model = Models.get_model_by_id(id)
+    profile_image_url = None
+
     if model:
-        if model.meta.profile_image_url:
-            if model.meta.profile_image_url.startswith("http"):
-                return Response(
-                    status_code=status.HTTP_302_FOUND,
-                    headers={"Location": model.meta.profile_image_url},
-                )
-            elif model.meta.profile_image_url.startswith("data:image"):
-                try:
-                    header, base64_data = model.meta.profile_image_url.split(",", 1)
-                    image_data = base64.b64decode(base64_data)
-                    image_buffer = io.BytesIO(image_data)
-
-                    return StreamingResponse(
-                        image_buffer,
-                        media_type="image/png",
-                        headers={"Content-Disposition": "inline; filename=image.png"},
-                    )
-                except Exception as e:
-                    pass
-
-        return FileResponse(f"{STATIC_DIR}/favicon.png")
+        profile_image_url = model.meta.profile_image_url
     else:
-        return FileResponse(f"{STATIC_DIR}/favicon.png")
+        # Model not in database, check in-memory models cache (for base models from Ollama/OpenAI)
+        if hasattr(request.app.state, "MODELS") and request.app.state.MODELS:
+            cached_model = request.app.state.MODELS.get(id)
+            if cached_model:
+                profile_image_url = (
+                    cached_model.get("info", {})
+                    .get("meta", {})
+                    .get("profile_image_url")
+                )
+
+    # If still no profile_image_url, try auto-detection based on model id/name
+    if not profile_image_url or profile_image_url == "/static/favicon.png":
+        auto_icon = get_model_icon_url(id)
+        if auto_icon:
+            profile_image_url = auto_icon
+
+    if profile_image_url:
+        if profile_image_url.startswith("http"):
+            return Response(
+                status_code=status.HTTP_302_FOUND,
+                headers={"Location": profile_image_url},
+            )
+        elif profile_image_url.startswith("data:image"):
+            try:
+                header, base64_data = profile_image_url.split(",", 1)
+                image_data = base64.b64decode(base64_data)
+                image_buffer = io.BytesIO(image_data)
+
+                return StreamingResponse(
+                    image_buffer,
+                    media_type="image/png",
+                    headers={"Content-Disposition": "inline; filename=image.png"},
+                )
+            except Exception as e:
+                pass
+        elif profile_image_url.startswith("/static/"):
+            # Serve static files from the static directory
+            static_path = profile_image_url.replace("/static/", "", 1)
+            file_path = f"{STATIC_DIR}/{static_path}"
+            try:
+                return FileResponse(file_path)
+            except Exception as e:
+                pass
+
+    return FileResponse(f"{STATIC_DIR}/favicon.png")
 
 
 ############################
