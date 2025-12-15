@@ -1949,7 +1949,9 @@
 
 				session_id: $socket?.id,
 				chat_id: $chatId,
+
 				id: responseMessageId,
+				parent_id: userMessage?.id ?? null,
 
 				background_tasks: {
 					...(!$temporaryChatEnabled &&
